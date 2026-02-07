@@ -20,6 +20,30 @@ const LoadingView = () => (
   </div>
 );
 
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-slate-950">
+          <h2 className="text-2xl font-bold text-white mb-4">Something went wrong</h2>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-emerald-500 text-slate-950 rounded-lg font-bold"
+          >
+            Reload Application
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<AppView>('chat');
   const [builderMessages, setBuilderMessages] = useState<BuilderSnippet[]>(() => {
@@ -73,8 +97,8 @@ const App: React.FC = () => {
           <button
             onClick={() => navigate('chat')}
             className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 ${activeView === 'chat'
-                ? 'border-emerald-500 text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-300'
+              ? 'border-emerald-500 text-emerald-400'
+              : 'border-transparent text-slate-500 hover:text-slate-300'
               }`}
           >
             Scout Chat
@@ -82,8 +106,8 @@ const App: React.FC = () => {
           <button
             onClick={() => navigate('builder')}
             className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 flex items-center gap-2 ${activeView === 'builder'
-                ? 'border-emerald-500 text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-300'
+              ? 'border-emerald-500 text-emerald-400'
+              : 'border-transparent text-slate-500 hover:text-slate-300'
               }`}
           >
             Message Builder
@@ -96,8 +120,8 @@ const App: React.FC = () => {
           <button
             onClick={() => navigate('brand-llm')}
             className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 ${activeView === 'brand-llm'
-                ? 'border-emerald-500 text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-300'
+              ? 'border-emerald-500 text-emerald-400'
+              : 'border-transparent text-slate-500 hover:text-slate-300'
               }`}
           >
             Brand LLM
@@ -106,26 +130,28 @@ const App: React.FC = () => {
 
         {/* Page Content */}
         <div className="flex-1 flex flex-col">
-          <Suspense fallback={<LoadingView />}>
-            {activeView === 'chat' ? (
-              <div className="h-[calc(100vh-128px)] flex flex-col">
-                <ChatInterface onAddToBuilder={(content, title) => addToBuilder({
-                  id: Date.now().toString(),
-                  title: title || 'Insight Snippet',
-                  content
-                })} />
-              </div>
-            ) : activeView === 'builder' ? (
-              <MessageBuilder
-                snippets={builderMessages}
-                onRemove={removeFromBuilder}
-                onClear={clearBuilder}
-                onSwitchToChat={() => navigate('chat')}
-              />
-            ) : (
-              <BrandLLM />
-            )}
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingView />}>
+              {activeView === 'chat' ? (
+                <div className="h-[calc(100vh-128px)] flex flex-col">
+                  <ChatInterface onAddToBuilder={(content, title) => addToBuilder({
+                    id: Date.now().toString(),
+                    title: title || 'Insight Snippet',
+                    content
+                  })} />
+                </div>
+              ) : activeView === 'builder' ? (
+                <MessageBuilder
+                  snippets={builderMessages}
+                  onRemove={removeFromBuilder}
+                  onClear={clearBuilder}
+                  onSwitchToChat={() => navigate('chat')}
+                />
+              ) : (
+                <BrandLLM />
+              )}
+            </Suspense>
+          </ErrorBoundary>
         </div>
       </div>
     </Layout>

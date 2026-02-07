@@ -29,15 +29,27 @@ Reporting Format:
 - Use tables for statistical comparisons.
 - Keep it concise but dense with value.`;
 
+  public initError: string | null = null;
+
   constructor() {
-    const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("Gemini API Key is missing. Please check your environment variables.");
+    try {
+      const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        this.initError = "Gemini API Key is missing. Please check your Vercel Environment Variables.";
+        console.warn(this.initError);
+        return;
+      }
+      this.ai = new GoogleGenAI({ apiKey });
+    } catch (e: any) {
+      this.initError = "Failed to initialize AI Scout: " + e.message;
+      console.error(this.initError);
     }
-    this.ai = new GoogleGenAI({ apiKey });
   }
 
   async sendMessage(message: string) {
+    if (this.initError) {
+      throw new Error(this.initError);
+    }
     // 1. Add user message to history
     this.history.push({
       role: 'user',

@@ -1,0 +1,5 @@
+{
+  "name": "FPL Insight Scout",
+  "description": "A high-end FPL assistant connected to a custom n8n intelligence backend for advanced player analysis and scouting reports.\n\nUse the data you receive to provide a natural language summary in markdown format. Do not show the user JSON parameters",
+  "requestFramePermissions": []
+}

@@ -83,14 +83,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
         data: response.data
       };
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      const errorMessage: ChatMessage = {
+    } catch (error: any) {
+      const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I'm having trouble reaching the scouting network. Please check your connection and try again.",
+        content: `🚨 **Network Error:** ${error.message || "I'm having trouble reaching the scouting network."}\n\n*Check the browser console for more details.*`,
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, assistantMessage]);
     } finally {
       setIsLoading(false);
     }

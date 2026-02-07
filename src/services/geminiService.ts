@@ -55,20 +55,10 @@ Reporting Format:
       throw new Error(this.initError);
     }
 
-    // 1. Add user message to history
-    this.history.push({
-      role: 'user',
-      parts: [{ text: message }]
-    });
-
     try {
-      let loopCount = 0;
-      const MAX_LOOPS = 5;
-
-      // Initialize the model once for this turn
       const model = this.ai.getGenerativeModel({
         model: 'gemini-1.5-flash',
-        systemInstruction: { role: 'system', parts: [{ text: this.sysInstruction }] },
+        systemInstruction: this.sysInstruction,
         tools: [
           {
             functionDeclarations: [
@@ -108,72 +98,74 @@ Reporting Format:
         ]
       });
 
-      while (loopCount < MAX_LOOPS) {
-        loopCount++;
+      // Use ChatSession for stateful management
+      const chat = model.startChat({
+        history: this.history,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        }
+      });
 
-        const result = await model.generateContent({
-          contents: this.history,
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2048,
+      const result = await chat.sendMessage(message);
+      const response = await result.response;
+
+      // The session automatically handles history and tool calls if we use provided functions
+      // BUT for manual tool execution with local logic, we still need the loop if the model requires it.
+      // However, the v1 SDK handles tool responses if we use the automatic tool calling feature.
+      // Let's implement the manual turn again but cleaner within the session.
+
+      const candidate = response.candidates![0];
+      const parts = candidate.content.parts;
+
+      // Update our local history tracking
+      this.history = await chat.getHistory();
+
+      const toolCalls = parts.filter((p: any) => p.functionCall);
+
+      if (toolCalls.length === 0) {
+        return {
+          text: response.text(),
+          data: {}
+        };
+      }
+
+      // If there are tool calls, we execute them and send them back to the session
+      const toolResultsParts = [];
+      for (const call of toolCalls) {
+        const { name, args } = call.functionCall;
+        console.log(`[Elite Scout] Executing tool: ${name}`, args);
+
+        let toolResult;
+        try {
+          if (name === 'get_player_stats') {
+            toolResult = await fplApi.getPlayerStats(args.name);
+          } else if (name === 'get_top_players') {
+            toolResult = await fplApi.getTopPlayers(args.position, args.limit);
+          } else if (name === 'get_fixtures') {
+            toolResult = await fplApi.getFixtures(args.team);
           }
-        });
-
-        const response = await result.response;
-        const candidate = response.candidates![0];
-        const parts = candidate.content.parts;
-
-        // Add model response to history
-        this.history.push(candidate.content);
-
-        // Check for Tool Calls
-        const toolCalls = parts.filter((p: any) => p.functionCall);
-
-        if (toolCalls.length === 0) {
-          // No more tools, return the final text
-          const textPart = parts.find((p: any) => p.text);
-          return {
-            text: textPart?.text || "The scout is thinking deeply. Please ask again.",
-            data: {}
-          };
+        } catch (toolError) {
+          console.error(`Tool execution error [${name}]:`, toolError);
+          toolResult = { error: "Data fetch failed for this tool." };
         }
 
-        // Execute Tools
-        const toolResultsParts = [];
-        for (const call of toolCalls) {
-          const { name, args } = call.functionCall;
-          console.log(`[Elite Scout] Executing tool: ${name}`, args);
-
-          let toolResult;
-          try {
-            if (name === 'get_player_stats') {
-              toolResult = await fplApi.getPlayerStats(args.name);
-            } else if (name === 'get_top_players') {
-              toolResult = await fplApi.getTopPlayers(args.position, args.limit);
-            } else if (name === 'get_fixtures') {
-              toolResult = await fplApi.getFixtures(args.team);
-            }
-          } catch (toolError) {
-            console.error(`Tool execution error [${name}]:`, toolError);
-            toolResult = { error: "Data fetch failed for this tool." };
+        toolResultsParts.push({
+          functionResponse: {
+            name,
+            response: { content: toolResult || { error: "No data found" } }
           }
-
-          toolResultsParts.push({
-            functionResponse: {
-              name,
-              response: { content: toolResult || { error: "No data found" } }
-            }
-          });
-        }
-
-        // Add tool results to history for the next turn
-        this.history.push({
-          role: 'user',
-          parts: toolResultsParts
         });
       }
 
-      return { text: "Analysis complete, but I may have exceeded my data lookup limit.", data: {} };
+      // Send tool results back to the session for the final text response
+      const finalResult = await chat.sendMessage(toolResultsParts);
+      this.history = await chat.getHistory();
+
+      return {
+        text: finalResult.response.text(),
+        data: {}
+      };
 
     } catch (error: any) {
       console.error("Orchestrator Error detailed:", error);

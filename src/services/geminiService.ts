@@ -57,7 +57,7 @@ Reporting Format:
 
     try {
       const model = this.ai.getGenerativeModel({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.0-flash',
         systemInstruction: this.sysInstruction,
         tools: [
           {
@@ -194,7 +194,7 @@ export async function generateMessageVariants(content: string, channel: 'Push' |
     (import.meta as any).env?.VITE_GEMINI_API_KEY;
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.0-flash',
     systemInstruction: { role: 'system', parts: [{ text: "You are a senior FPL content strategist. Return a JSON object with a 'variants' array containing exactly 3 objects. Each object must have 'label' and 'content' strings." }] },
   });
 

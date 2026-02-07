@@ -33,7 +33,11 @@ Reporting Format:
 
   constructor() {
     try {
-      const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+      // Check both standard and Vite-prefixed environment variables
+      const apiKey = process.env.API_KEY ||
+        process.env.GEMINI_API_KEY ||
+        (import.meta as any).env?.VITE_GEMINI_API_KEY;
+
       if (!apiKey) {
         this.initError = "Gemini API Key is missing. Please check your Vercel Environment Variables.";
         console.warn(this.initError);
@@ -181,7 +185,10 @@ export async function chatWithGemini(messages: any[]) {
  * Generates marketing variants based on selected scouting content.
  */
 export async function generateMessageVariants(content: string, channel: 'Push' | 'Social' | 'Email') {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    (import.meta as any).env?.VITE_GEMINI_API_KEY;
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
     Scouting Data:
@@ -259,7 +266,10 @@ export async function generateMessageVariants(content: string, channel: 'Push' |
  * Generates 3 creative image options for a given message content.
  */
 export async function generateCreativeOptions(messageContent: string) {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    (import.meta as any).env?.VITE_GEMINI_API_KEY;
+  const ai = new GoogleGenAI({ apiKey });
 
   // Styles for the 3 variations
   const styles = [

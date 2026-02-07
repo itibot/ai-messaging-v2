@@ -57,7 +57,7 @@ Reporting Format:
 
     try {
       const model = this.ai.getGenerativeModel({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         systemInstruction: this.sysInstruction,
         tools: [
           {
@@ -193,12 +193,11 @@ export async function generateMessageVariants(content: string, channel: 'Push' |
     process.env.GEMINI_API_KEY ||
     (import.meta as any).env?.VITE_GEMINI_API_KEY;
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+  model: 'gemini-2.5-flash',
     systemInstruction: { role: 'system', parts: [{ text: "You are a senior FPL content strategist. Return a JSON object with a 'variants' array containing exactly 3 objects. Each object must have 'label' and 'content' strings." }] },
-  });
+});
 
-  const prompt = `
+const prompt = `
     Scouting Data:
     "${content}"
     
@@ -211,62 +210,62 @@ export async function generateMessageVariants(content: string, channel: 'Push' |
     - Email: Includes a compelling subject line and a structured body.
   `;
 
-  try {
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.OBJECT,
-          properties: {
-            variants: {
-              type: SchemaType.ARRAY,
-              items: {
-                type: SchemaType.OBJECT,
-                properties: {
-                  label: { type: SchemaType.STRING, description: "A creative label for this variant" },
-                  content: { type: SchemaType.STRING, description: "The message text" }
-                },
-                required: ["label", "content"]
+try {
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: SchemaType.OBJECT,
+        properties: {
+          variants: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                label: { type: SchemaType.STRING, description: "A creative label for this variant" },
+                content: { type: SchemaType.STRING, description: "The message text" }
               },
-              minItems: 3,
-              maxItems: 3
-            }
-          },
-          required: ["variants"]
-        }
+              required: ["label", "content"]
+            },
+            minItems: 3,
+            maxItems: 3
+          }
+        },
+        required: ["variants"]
       }
-    });
-
-    const response = await result.response;
-    const rawText = response.text();
-    if (!rawText) throw new Error("AI returned no text content");
-
-    const jsonString = rawText.replace(/```json\n?|```/g, '').trim();
-    const data = JSON.parse(jsonString);
-
-    if (!data.variants || !Array.isArray(data.variants)) {
-      throw new Error("Invalid response format: missing variants array");
     }
+  });
 
-    return data.variants;
-  } catch (error) {
-    console.error("Variant generation failed, using fallbacks:", error);
-    return [
-      {
-        label: "Strategic Edge",
-        content: `🚨 **FPL SCOUT UPDATE**\n\nBased on the latest data, your squad needs an adjustment. Key assets are showing massive potential for GW${Math.floor(Math.random() * 38) + 1}. Check the reports now!`
-      },
-      {
-        label: "Market Alert",
-        content: "Transfer window analysis complete. We've identified 3 budget-friendly differentials with low ownership and high xG. Don't fall behind the template. ⚽️ #FPL"
-      },
-      {
-        label: "Elite Insight",
-        content: "Captaincy choice locked? Our engine suggests a surprising alternative to Haaland this week. Dive into the numbers before the deadline hits."
-      }
-    ];
+  const response = await result.response;
+  const rawText = response.text();
+  if (!rawText) throw new Error("AI returned no text content");
+
+  const jsonString = rawText.replace(/```json\n?|```/g, '').trim();
+  const data = JSON.parse(jsonString);
+
+  if (!data.variants || !Array.isArray(data.variants)) {
+    throw new Error("Invalid response format: missing variants array");
   }
+
+  return data.variants;
+} catch (error) {
+  console.error("Variant generation failed, using fallbacks:", error);
+  return [
+    {
+      label: "Strategic Edge",
+      content: `🚨 **FPL SCOUT UPDATE**\n\nBased on the latest data, your squad needs an adjustment. Key assets are showing massive potential for GW${Math.floor(Math.random() * 38) + 1}. Check the reports now!`
+    },
+    {
+      label: "Market Alert",
+      content: "Transfer window analysis complete. We've identified 3 budget-friendly differentials with low ownership and high xG. Don't fall behind the template. ⚽️ #FPL"
+    },
+    {
+      label: "Elite Insight",
+      content: "Captaincy choice locked? Our engine suggests a surprising alternative to Haaland this week. Dive into the numbers before the deadline hits."
+    }
+  ];
+}
 }
 
 /**

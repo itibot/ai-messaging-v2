@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { fplApi } from "./fplService";
 /**
  * Orchestrator for the Chat Experience.
@@ -33,18 +33,18 @@ Reporting Format:
 
   constructor() {
     try {
-      // Check both standard and Vite-prefixed environment variables
-      const apiKey = process.env.API_KEY ||
+      // Prioritize Vite-prefixed variables for production reliability
+      const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY ||
         process.env.GEMINI_API_KEY ||
-        (import.meta as any).env?.VITE_GEMINI_API_KEY;
+        process.env.API_KEY;
 
       if (!apiKey) {
-        this.initError = "Gemini API Key is missing. Please check your Vercel Environment Variables.";
+        this.initError = "Gemini API Key is missing. Please ensure VITE_GEMINI_API_KEY is set in Vercel.";
         console.warn(this.initError);
         return;
       }
-      // The SDK constructor takes the key string, not an object
-      this.ai = new GoogleGenAI(apiKey);
+      // The official SDK uses GoogleGenerativeAI
+      this.ai = new GoogleGenerativeAI(apiKey);
     } catch (e: any) {
       this.initError = "Failed to initialize AI Scout: " + e.message;
       console.error(this.initError);
@@ -77,8 +77,8 @@ Reporting Format:
                 name: "get_player_stats",
                 description: "Fetch detailed statistics for a specific FPL player.",
                 parameters: {
-                  type: Type.OBJECT,
-                  properties: { name: { type: Type.STRING } },
+                  type: SchemaType.OBJECT,
+                  properties: { name: { type: SchemaType.STRING } },
                   required: ["name"]
                 }
               },
@@ -86,10 +86,10 @@ Reporting Format:
                 name: "get_top_players",
                 description: "Fetch top performing players by position.",
                 parameters: {
-                  type: Type.OBJECT,
+                  type: SchemaType.OBJECT,
                   properties: {
-                    position: { type: Type.STRING, description: "GKP, DEF, MID, or FWD" },
-                    limit: { type: Type.NUMBER }
+                    position: { type: SchemaType.STRING, description: "GKP, DEF, MID, or FWD" },
+                    limit: { type: SchemaType.NUMBER }
                   }
                 }
               },
@@ -97,9 +97,9 @@ Reporting Format:
                 name: "get_fixtures",
                 description: "Fetch upcoming fixtures for a specific FPL team.",
                 parameters: {
-                  type: Type.OBJECT,
+                  type: SchemaType.OBJECT,
                   properties: {
-                    team: { type: Type.STRING, description: "Name of the team (e.g., Arsenal, Liverpool)" }
+                    team: { type: SchemaType.STRING, description: "Name of the team (e.g., Arsenal, Liverpool)" }
                   },
                   required: ["team"]
                 }
@@ -201,7 +201,7 @@ export async function generateMessageVariants(content: string, channel: 'Push' |
   const apiKey = process.env.API_KEY ||
     process.env.GEMINI_API_KEY ||
     (import.meta as any).env?.VITE_GEMINI_API_KEY;
-  const genAI = new GoogleGenAI(apiKey);
+  const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: 'gemini-1.5-flash',
     systemInstruction: { role: 'system', parts: [{ text: "You are a senior FPL content strategist. Return a JSON object with a 'variants' array containing exactly 3 objects. Each object must have 'label' and 'content' strings." }] },
@@ -226,15 +226,15 @@ export async function generateMessageVariants(content: string, channel: 'Push' |
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.OBJECT,
+          type: SchemaType.OBJECT,
           properties: {
             variants: {
-              type: Type.ARRAY,
+              type: SchemaType.ARRAY,
               items: {
-                type: Type.OBJECT,
+                type: SchemaType.OBJECT,
                 properties: {
-                  label: { type: Type.STRING, description: "A creative label for this variant" },
-                  content: { type: Type.STRING, description: "The message text" }
+                  label: { type: SchemaType.STRING, description: "A creative label for this variant" },
+                  content: { type: SchemaType.STRING, description: "The message text" }
                 },
                 required: ["label", "content"]
               },
@@ -285,7 +285,7 @@ export async function generateCreativeOptions(messageContent: string) {
   const apiKey = process.env.API_KEY ||
     process.env.GEMINI_API_KEY ||
     (import.meta as any).env?.VITE_GEMINI_API_KEY;
-  const genAI = new GoogleGenAI(apiKey);
+  const genAI = new GoogleGenerativeAI(apiKey);
 
   try {
     // Note: The specific image model name depends on your project access (e.g., 'imagination-base')

@@ -35,8 +35,7 @@ Reporting Format:
     try {
       // Prioritize Vite-prefixed variables for production reliability
       const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-        process.env.GEMINI_API_KEY ||
-        process.env.API_KEY;
+        (typeof process !== 'undefined' ? (process.env?.GEMINI_API_KEY || process.env?.API_KEY) : null);
 
       if (!apiKey) {
         this.initError = "Gemini API Key is missing. Please ensure VITE_GEMINI_API_KEY is set in Vercel.";

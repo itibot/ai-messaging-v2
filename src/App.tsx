@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Layout from './components/Layout';
-import ChatInterface from './components/ChatInterface';
-import MessageBuilder from './components/MessageBuilder';
-import BrandLLM from './components/BrandLLM';
+
+// Lazy load heavy components
+const ChatInterface = lazy(() => import('./components/ChatInterface'));
+const MessageBuilder = lazy(() => import('./components/MessageBuilder'));
+const BrandLLM = lazy(() => import('./components/BrandLLM'));
 
 export type BuilderSnippet = {
   id: string;
@@ -11,6 +13,12 @@ export type BuilderSnippet = {
 };
 
 export type AppView = 'chat' | 'builder' | 'brand-llm';
+
+const LoadingView = () => (
+  <div className="flex-1 flex items-center justify-center">
+    <div className="w-8 h-8 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+  </div>
+);
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<AppView>('chat');
@@ -62,23 +70,21 @@ const App: React.FC = () => {
       <div className="flex flex-col min-h-0">
         {/* Sub-Header Navigation Tabs - Sticky to keep context */}
         <div className="sticky top-0 z-40 flex items-center px-6 border-b border-white/5 bg-slate-950/80 backdrop-blur-md">
-          <button 
+          <button
             onClick={() => navigate('chat')}
-            className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 ${
-              activeView === 'chat' 
-                ? 'border-emerald-500 text-emerald-400' 
+            className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 ${activeView === 'chat'
+                ? 'border-emerald-500 text-emerald-400'
                 : 'border-transparent text-slate-500 hover:text-slate-300'
-            }`}
+              }`}
           >
             Scout Chat
           </button>
-          <button 
+          <button
             onClick={() => navigate('builder')}
-            className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 flex items-center gap-2 ${
-              activeView === 'builder' 
-                ? 'border-emerald-500 text-emerald-400' 
+            className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 flex items-center gap-2 ${activeView === 'builder'
+                ? 'border-emerald-500 text-emerald-400'
                 : 'border-transparent text-slate-500 hover:text-slate-300'
-            }`}
+              }`}
           >
             Message Builder
             {builderMessages.length > 0 && (
@@ -87,13 +93,12 @@ const App: React.FC = () => {
               </span>
             )}
           </button>
-          <button 
+          <button
             onClick={() => navigate('brand-llm')}
-            className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 ${
-              activeView === 'brand-llm' 
-                ? 'border-emerald-500 text-emerald-400' 
+            className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 ${activeView === 'brand-llm'
+                ? 'border-emerald-500 text-emerald-400'
                 : 'border-transparent text-slate-500 hover:text-slate-300'
-            }`}
+              }`}
           >
             Brand LLM
           </button>
@@ -101,24 +106,26 @@ const App: React.FC = () => {
 
         {/* Page Content */}
         <div className="flex-1 flex flex-col">
-          {activeView === 'chat' ? (
-            <div className="h-[calc(100vh-128px)] flex flex-col">
-              <ChatInterface onAddToBuilder={(content, title) => addToBuilder({ 
-                id: Date.now().toString(), 
-                title: title || 'Insight Snippet', 
-                content 
-              })} />
-            </div>
-          ) : activeView === 'builder' ? (
-            <MessageBuilder 
-              snippets={builderMessages} 
-              onRemove={removeFromBuilder}
-              onClear={clearBuilder}
-              onSwitchToChat={() => navigate('chat')}
-            />
-          ) : (
-            <BrandLLM />
-          )}
+          <Suspense fallback={<LoadingView />}>
+            {activeView === 'chat' ? (
+              <div className="h-[calc(100vh-128px)] flex flex-col">
+                <ChatInterface onAddToBuilder={(content, title) => addToBuilder({
+                  id: Date.now().toString(),
+                  title: title || 'Insight Snippet',
+                  content
+                })} />
+              </div>
+            ) : activeView === 'builder' ? (
+              <MessageBuilder
+                snippets={builderMessages}
+                onRemove={removeFromBuilder}
+                onClear={clearBuilder}
+                onSwitchToChat={() => navigate('chat')}
+              />
+            ) : (
+              <BrandLLM />
+            )}
+          </Suspense>
         </div>
       </div>
     </Layout>

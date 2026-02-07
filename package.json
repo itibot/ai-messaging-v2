@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "security-scan": "node scripts/verify-secrets.js",
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run security-scan && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

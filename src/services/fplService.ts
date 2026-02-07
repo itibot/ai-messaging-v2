@@ -64,32 +64,44 @@ const ARTICLES: Article[] = [
 
 export const fplApi = {
   async getPlayerStats(name: string): Promise<PlayerStats | null> {
-    console.log(`API Call: Fetching stats for ${name}`);
-    const player = PLAYERS.find(p => p.name.toLowerCase().includes(name.toLowerCase()));
-    return player || null;
+    try {
+      const response = await fetch(`/api/data/players?name=${encodeURIComponent(name)}`);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error("Failed to fetch player stats:", error);
+      return null;
+    }
   },
 
   async getTopPlayers(position?: string, limit: number = 5): Promise<PlayerStats[]> {
-    console.log(`API Call: Fetching top ${limit} players ${position ? `in position ${position}` : ''}`);
-    let filtered = PLAYERS;
-    if (position) {
-      filtered = PLAYERS.filter(p => p.position === position);
+    try {
+      const url = `/api/data/top-players?limit=${limit}${position ? `&position=${position}` : ''}`;
+      const response = await fetch(url);
+      if (!response.ok) return [];
+      return await response.json();
+    } catch (error) {
+      console.error("Failed to fetch top players:", error);
+      return [];
     }
-    return filtered.sort((a, b) => b.points - a.points).slice(0, limit);
   },
 
   async getFixtures(team: string): Promise<Fixture[]> {
-    console.log(`API Call: Fetching fixtures for ${team}`);
-    return FIXTURES[team] || [];
+    try {
+      const response = await fetch(`/api/data/fixtures?team=${encodeURIComponent(team)}`);
+      if (!response.ok) return [];
+      return await response.json();
+    } catch (error) {
+      console.error("Failed to fetch fixtures:", error);
+      return [];
+    }
   },
 
   async getNews(topic: string): Promise<Article[]> {
-    console.log(`API Call: Fetching news related to ${topic}`);
     return ARTICLES.filter(a => a.title.toLowerCase().includes(topic.toLowerCase()) || a.snippet.toLowerCase().includes(topic.toLowerCase()));
   },
 
   async getInjuries(team: string): Promise<any[]> {
-    console.log(`API Call: Fetching injuries for ${team}`);
     return INJURIES[team] || [];
   }
 };

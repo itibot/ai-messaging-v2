@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '../types';
-import { chatWithGemini } from '../services/geminiService';
+import { ChatOrchestrator } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 
 interface ChatInterfaceProps {
@@ -9,6 +9,11 @@ interface ChatInterfaceProps {
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
+  const orchestratorRef = useRef<ChatOrchestrator | null>(null);
+
+  if (!orchestratorRef.current) {
+    orchestratorRef.current = new ChatOrchestrator();
+  }
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -61,7 +66,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
     setIsLoading(true);
 
     try {
-      const response = await chatWithGemini([...messages, userMessage]);
+      const response = await orchestratorRef.current!.sendMessage(input);
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -86,23 +91,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
   return (
     <div className="flex-1 flex flex-col h-full max-w-5xl mx-auto w-full relative">
       {/* Messages */}
-      <div 
+      <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-12 pb-24"
       >
         {messages.map((msg, idx) => {
           const isLast = idx === messages.length - 1;
           return (
-            <div 
-              key={msg.id} 
+            <div
+              key={msg.id}
               ref={isLast ? lastMessageRef : null}
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}
             >
               <div className={`flex gap-4 w-full ${msg.role === 'user' ? 'flex-row-reverse max-w-[80%]' : 'flex-row max-w-full'}`}>
                 {/* Avatar */}
-                <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center shadow-lg ${
-                  msg.role === 'user' ? 'bg-indigo-600 shadow-indigo-500/20' : 'fpl-gradient shadow-emerald-500/20'
-                }`}>
+                <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center shadow-lg ${msg.role === 'user' ? 'bg-indigo-600 shadow-indigo-500/20' : 'fpl-gradient shadow-emerald-500/20'
+                  }`}>
                   {msg.role === 'user' ? (
                     <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -113,22 +117,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
                     </svg>
                   )}
                 </div>
-                
+
                 {/* Message Content Area */}
                 <div className={`flex-1 flex flex-col group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                   <div className="relative flex w-full items-start gap-4">
                     {/* The main bubble */}
-                    <div className={`flex-1 rounded-2xl text-sm leading-relaxed overflow-hidden ${
-                      msg.role === 'user' 
-                        ? 'bg-indigo-600 text-white rounded-tr-none p-4 shadow-xl border border-white/5' 
-                        : 'glass-panel text-slate-200 rounded-tl-none border border-white/10 shadow-2xl'
-                    }`}>
+                    <div className={`flex-1 rounded-2xl text-sm leading-relaxed overflow-hidden ${msg.role === 'user'
+                      ? 'bg-indigo-600 text-white rounded-tr-none p-4 shadow-xl border border-white/5'
+                      : 'glass-panel text-slate-200 rounded-tl-none border border-white/10 shadow-2xl'
+                      }`}>
                       <div className={`prose prose-invert prose-sm max-w-none ${msg.role === 'assistant' ? 'p-6' : ''}`}>
-                        <ReactMarkdown 
+                        <ReactMarkdown
                           components={{
-                              table: ({node, ...props}) => <div className="overflow-x-auto my-6"><table className="min-w-full divide-y divide-white/10" {...props} /></div>,
-                              th: ({node, ...props}) => <th className="px-3 py-3 text-left text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-white/5" {...props} />,
-                              td: ({node, ...props}) => <td className="px-3 py-3 text-[12px] whitespace-nowrap text-slate-300 border-t border-white/5" {...props} />
+                            table: ({ node, ...props }) => <div className="overflow-x-auto my-6"><table className="min-w-full divide-y divide-white/10" {...props} /></div>,
+                            th: ({ node, ...props }) => <th className="px-3 py-3 text-left text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-white/5" {...props} />,
+                            td: ({ node, ...props }) => <td className="px-3 py-3 text-[12px] whitespace-nowrap text-slate-300 border-t border-white/5" {...props} />
                           }}
                         >
                           {msg.content}
@@ -139,26 +142,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
                     {/* FLOATING STICKY ACTION BUTTON */}
                     {msg.role === 'assistant' && msg.id !== 'welcome' && (
                       <div className="hidden sm:block sticky top-6 z-20 shrink-0">
-                        <button 
+                        <button
                           onClick={() => handleAddToBuilder(msg)}
                           disabled={addedIds.has(msg.id)}
-                          className={`flex flex-col items-center justify-center gap-3 w-16 h-48 rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] transition-all vertical-text ${
-                            addedIds.has(msg.id) 
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 opacity-50' 
-                              : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-2xl shadow-emerald-500/30 active:scale-[0.95] hover:-translate-y-1'
-                          }`}
+                          className={`flex flex-col items-center justify-center gap-3 w-16 h-48 rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] transition-all vertical-text ${addedIds.has(msg.id)
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 opacity-50'
+                            : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-2xl shadow-emerald-500/30 active:scale-[0.95] hover:-translate-y-1'
+                            }`}
                           style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
                         >
                           <div style={{ transform: 'rotate(90deg)' }} className="mb-2">
-                             {addedIds.has(msg.id) ? (
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                             ) : (
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                             )}
+                            {addedIds.has(msg.id) ? (
+                              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                            )}
                           </div>
                           <span className="mt-2">{addedIds.has(msg.id) ? 'ADDED TO SCOUT' : 'ADD TO REPORT'}</span>
                         </button>
@@ -172,14 +174,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
 
                   {/* Mobile-only fallback button for small screens */}
                   {msg.role === 'assistant' && msg.id !== 'welcome' && (
-                    <button 
+                    <button
                       onClick={() => handleAddToBuilder(msg)}
                       disabled={addedIds.has(msg.id)}
-                      className={`sm:hidden w-full mt-3 flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${
-                        addedIds.has(msg.id) 
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                          : 'bg-emerald-500 text-slate-950'
-                      }`}
+                      className={`sm:hidden w-full mt-3 flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${addedIds.has(msg.id)
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : 'bg-emerald-500 text-slate-950'
+                        }`}
                     >
                       {addedIds.has(msg.id) ? 'Added to Report' : 'Add to Scouting Report'}
                     </button>
@@ -205,7 +206,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
 
       {/* Input Area - Floating glass design */}
       <div className="p-6 pt-2 sticky bottom-0 z-30 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent">
-        <form 
+        <form
           onSubmit={handleSubmit}
           className="relative group max-w-4xl mx-auto"
         >

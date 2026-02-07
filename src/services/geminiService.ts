@@ -1,52 +1,168 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { fplApi } from "./fplService";
+/**
+ * Orchestrator for the Chat Experience.
+ * Manages session history, tool execution, and persona reinforcement.
+ */
 
 /**
- * Service to handle communication with Gemini AI.
- * Operates entirely on the client side to avoid backend dependencies.
+ * Orchestrator for the Chat Experience.
+ * Manages session history, tool execution, and persona reinforcement.
  */
+export class ChatOrchestrator {
+  private ai: any;
+  private history: any[] = [];
+  private sysInstruction = `You are a world-class FPL Scout. You translate complex data into beautiful, actionable Markdown scouting reports.
+
+Personality:
+- Insightful, professional, and slightly elite (like a premium sports analyst).
+- Use real-time data from tools to back up every recommendation.
+- Interpretation is key: explain WHAT the data means for the manager's rank.
+
+Capabilities:
+- You can fetch real-time FPL player stats and top performers via tools.
+- You generate scouting reports, transfer advice, and captaincy analysis.
+
+Reporting Format:
+- Use H2 and H3 for sections.
+- Use bolding for player names.
+- Use tables for statistical comparisons.
+- Keep it concise but dense with value.`;
+
+  constructor() {
+    const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("Gemini API Key is missing. Please check your environment variables.");
+    }
+    this.ai = new GoogleGenAI({ apiKey });
+  }
+
+  async sendMessage(message: string) {
+    // 1. Add user message to history
+    this.history.push({
+      role: 'user',
+      parts: [{ text: message }]
+    });
+
+    try {
+      let loopCount = 0;
+      const MAX_LOOPS = 5;
+
+      while (loopCount < MAX_LOOPS) {
+        loopCount++;
+
+        const response = await this.ai.models.generateContent({
+          model: 'gemini-1.5-flash',
+          config: {
+            systemInstruction: this.sysInstruction,
+            temperature: 0.7,
+          },
+          contents: this.history,
+          tools: [
+            {
+              functionDeclarations: [
+                {
+                  name: "get_player_stats",
+                  description: "Fetch detailed statistics for a specific FPL player.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: { name: { type: Type.STRING } },
+                    required: ["name"]
+                  }
+                },
+                {
+                  name: "get_top_players",
+                  description: "Fetch top performing players by position.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      position: { type: Type.STRING, description: "GKP, DEF, MID, or FWD" },
+                      limit: { type: Type.NUMBER }
+                    }
+                  }
+                },
+                {
+                  name: "get_fixtures",
+                  description: "Fetch upcoming fixtures for a specific FPL team.",
+                  parameters: {
+                    type: Type.OBJECT,
+                    properties: {
+                      team: { type: Type.STRING, description: "Name of the team (e.g., Arsenal, Liverpool)" }
+                    },
+                    required: ["team"]
+                  }
+                }
+              ]
+            }
+          ]
+        });
+
+        const candidate = response.candidates[0];
+        const parts = candidate.content.parts;
+
+        // Add model response to history
+        this.history.push(candidate.content);
+
+        // Check for Tool Calls
+        const toolCalls = parts.filter((p: any) => p.functionCall);
+
+        if (toolCalls.length === 0) {
+          // No more tools, return the final text
+          const textPart = parts.find((p: any) => p.text);
+          return {
+            text: textPart?.text || "The scout is thinking deeply. Please ask again.",
+            data: {}
+          };
+        }
+
+        // Execute Tools
+        const toolResultsParts = [];
+        for (const call of toolCalls) {
+          const { name, args } = call.functionCall;
+          console.log(`[Elite Scout] Executing tool: ${name}`, args);
+
+          let result;
+          if (name === 'get_player_stats') {
+            result = await fplApi.getPlayerStats(args.name);
+          } else if (name === 'get_top_players') {
+            result = await fplApi.getTopPlayers(args.position, args.limit);
+          } else if (name === 'get_fixtures') {
+            result = await fplApi.getFixtures(args.team);
+          }
+
+          toolResultsParts.push({
+            functionResponse: {
+              name,
+              response: { content: result || { error: "No data found" } }
+            }
+          });
+        }
+
+        // Add tool results to history for the next turn
+        this.history.push({
+          role: 'user', // In this SDK, tool results are often sent back as 'user' or 'function' role depending on exact implementation, but 'user' with functionResponse parts is common.
+          parts: toolResultsParts
+        });
+      }
+
+      return { text: "Analysis complete, but I may have exceeded my data lookup limit.", data: {} };
+
+    } catch (error) {
+      console.error("Orchestrator Error:", error);
+      throw error;
+    }
+  }
+
+  getHistory() {
+    return this.history;
+  }
+}
+
+// Keep the legacy export (stateless)
 export async function chatWithGemini(messages: any[]) {
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Gemini API Key is missing. Please check your environment variables.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey: apiKey });
-  const model = ai.getGenerativeModel({
-    model: 'gemini-1.5-flash',
-    systemInstruction: "You are a world-class FPL Scout. You translate data into beautiful, actionable Markdown scouting reports. You have access to real-time FPL insights and betting stats."
-  });
-
-  const currentMessage = messages[messages.length - 1].content;
-
-  try {
-    // In a client-only setup, we rely on the prompt to handle the intelligence.
-    // If we had a local data service, we could inject data here.
-    const prompt = `
-      Manager's Question: "${currentMessage}"
-      
-      Task:
-      As an elite FPL Scout, provide a detailed analysis and scouting report.
-      
-      Requirements:
-      - Use high-quality Markdown (bolding, lists, tables).
-      - Be professional, insightful, and concise.
-      - Format the response so it looks like a premium scouting report.
-      - If the manager asks about specific players or teams, use your internal knowledge of FPL stats and current trends.
-    `;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    return {
-      text: text || "I received data from the engine but was unable to generate a summary.",
-      data: {} // Empty data object for now since we are client-only
-    };
-
-  } catch (error) {
-    console.error("FPL Scout AI Error:", error);
-    throw error;
-  }
+  const orchestrator = new ChatOrchestrator();
+  const lastMessage = messages[messages.length - 1].content;
+  return orchestrator.sendMessage(lastMessage);
 }
 
 /**

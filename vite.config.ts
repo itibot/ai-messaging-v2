@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             'vendor': ['react', 'react-dom'],
-            'ai-engine': ['@google/genai'],
+            'ai-engine': ['@google/generative-ai'],
             'ui-utils': ['react-markdown']
           }
         }

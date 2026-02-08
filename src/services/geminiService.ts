@@ -160,10 +160,16 @@ Reporting Format:
 
       // Send tool results back to the session for the final text response
       const finalResult = await chat.sendMessage(toolResultsParts);
+      const finalText = finalResult.response.text();
       this.history = await chat.getHistory();
 
+      // NEW: Persist the scouting report to Supabase (Background-ish)
+      this.persistReport(message, finalText).catch(err =>
+        console.error("[DB] Failed to persist report:", err)
+      );
+
       return {
-        text: finalResult.response.text(),
+        text: finalText,
         data: {}
       };
 
@@ -175,6 +181,28 @@ Reporting Format:
 
   getHistory() {
     return this.history;
+  }
+
+  /**
+   * Internal helper to save a generated report to the Supabase history.
+   */
+  private async persistReport(prompt: string, reportText: string) {
+    const { supabase } = await import('./supabaseClient');
+
+    // For now, using a fixed tenant ID until real Auth is layered in
+    const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000';
+
+    const { error } = await supabase
+      .from('scouting_reports')
+      .insert({
+        tenant_id: DEFAULT_TENANT_ID,
+        prompt: prompt,
+        report_text: reportText,
+        metadata: { source: 'gemini-2.5-flash', timestamp: new Date().toISOString() }
+      });
+
+    if (error) throw error;
+    console.log('[DB] Scouting report persisted successfully.');
   }
 }
 

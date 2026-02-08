@@ -59,3 +59,10 @@ coverage/
 .nyc_output/
 
 /src/generated/prisma
+
+# Diagnostic and Test scripts
+diagnose-*.js
+test-*.js
+list-models.js
+scripts/test-db.js
+scripts/apply-rls.js

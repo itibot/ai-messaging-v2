@@ -1,4 +1,10 @@
 
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 export const config = {
     runtime: 'edge',
 };
@@ -7,11 +13,24 @@ export default async function handler(req: Request) {
     const { searchParams } = new URL(req.url);
     const teamName = searchParams.get('team');
 
+    if (!teamName) {
+        return new Response(JSON.stringify({ error: 'Team name is required' }), {
+            status: 400,
+            headers: { 'content-type': 'application/json' },
+        });
+    }
+
     try {
+        // Feature: Potentially look up tenant-specific fixture overrides in the future
+        if (supabaseUrl && supabaseKey) {
+            const { error: dbError } = await supabase.from('player_cache').select('fpl_id').limit(1);
+            if (!dbError) console.log('[Supabase] Connection verified for fixtures request');
+        }
+
         const response = await fetch(`https://fantasy.premierleague.com/api/bootstrap-static/`);
         const data = await response.json();
 
-        const team = data.teams.find((t: any) => t.name.toLowerCase().includes(teamName?.toLowerCase() || ''));
+        const team = data.teams.find((t: any) => t.name.toLowerCase().includes(teamName.toLowerCase()));
 
         if (!team) {
             return new Response(JSON.stringify({ error: 'Team not found' }), {
@@ -44,8 +63,9 @@ export default async function handler(req: Request) {
             status: 200,
             headers: { 'content-type': 'application/json' },
         });
-    } catch (error) {
-        return new Response(JSON.stringify({ error: 'Failed to fetch fixtures' }), {
+    } catch (error: any) {
+        console.error('Fixture API Error:', error);
+        return new Response(JSON.stringify({ error: 'Failed to fetch fixtures: ' + error.message }), {
             status: 500,
             headers: { 'content-type': 'application/json' },
         });

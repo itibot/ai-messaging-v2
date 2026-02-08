@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 1. Profiles (Linked to Supabase Auth.users)
+model Profile {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  fullName  String?  @map("full_name")
+  avatarUrl String?  @map("avatar_url")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  reports   ScoutingReport[]
+
+  @@map("profiles")
+}
+
+// 2. Scouting Reports (Multi-tenant AI history)
+model ScoutingReport {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  createdBy  String?  @map("created_by") @db.Uuid
+  prompt     String
+  reportText String   @map("report_text")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  profile    Profile? @relation(fields: [createdBy], references: [id])
+
+  @@map("scouting_reports")
+}
+
+// 3. Player Cache (Global FPL data)
+model PlayerCache {
+  fplId       Int      @id @map("fpl_id")
+  name        String
+  team        String
+  position    String
+  data        Json
+  lastUpdated DateTime @default(now()) @map("last_updated")
+
+  @@map("player_cache")
+}

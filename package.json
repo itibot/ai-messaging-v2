@@ -5,13 +5,19 @@
   "type": "module",
   "scripts": {
     "security-scan": "node scripts/verify-secrets.js",
+    "db-seed": "node scripts/seed.js",
     "dev": "vite",
     "build": "npm run security-scan && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@prisma/client": "^7.3.0",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.95.3",
     "@tailwindcss/vite": "^4.1.18",
+    "@vercel/postgres": "^0.10.0",
+    "pg": "^8.18.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0"
@@ -21,6 +27,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.24",
     "postcss": "^8.5.6",
+    "prisma": "^7.3.0",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"

@@ -1,22 +1,50 @@
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
+import type { UIMessage } from 'ai';
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+
+const getMessageContent = (message: any) => {
+  if (typeof message.content === 'string' && message.content) return message.content;
+  if (Array.isArray(message.parts)) {
+    return message.parts
+      .filter((p: any) => p.type === 'text')
+      .map((p: any) => p.text)
+      .join('');
+  }
+  return '';
+};
 
 interface ChatInterfaceProps {
   onAddToBuilder: (content: string, title: string) => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
-  const { messages, input, setInput, handleSubmit, isLoading, error: chatError } = useChat({
-    api: '/api/chat/stream',
-    initialMessages: [
+  const { messages, sendMessage, status, error: chatError } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/chat/stream' }),
+    messages: [
       {
         id: 'welcome',
         role: 'assistant',
-        content: "Hello Manager! ⚽️ I'm your **FPL Insight Scout**, now upgraded with **Super-Speed Streaming**. \n\nI'm ready to analyze your squad. Who should we look at today?",
+        parts: [{ type: 'text', text: "Hello Manager! ⚽️ I'm your **FPL Insight Scout**, now upgraded with **Super-Speed Streaming**. \n\nI'm ready to analyze your squad. Who should we look at today?" }],
       }
     ],
   });
+
+  const isLoading = status === 'submitted' || status === 'streaming';
+
+  const [input, setInput] = useState('');
+
+  const handleFormSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim()) return;
+
+    // Optimistically clear input
+    const value = input;
+    setInput('');
+
+    await sendMessage({ text: value });
+  };
 
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const lastMessageRef = useRef<HTMLDivElement>(null);
@@ -29,6 +57,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
   }, [messages, isLoading]);
 
   const extractTitle = (content: string): string => {
+    if (!content) return 'New Report';
     const headerMatch = content.match(/^#+\s*(.*)/m);
     if (headerMatch && headerMatch[1]) {
       return headerMatch[1].trim();
@@ -38,8 +67,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
   };
 
   const handleAddToBuilder = (msg: any) => {
-    const title = extractTitle(msg.content);
-    onAddToBuilder(msg.content, title);
+    const content = getMessageContent(msg);
+    const title = extractTitle(content);
+    onAddToBuilder(content, title);
     setAddedIds(prev => new Set([...prev, msg.id]));
   };
 
@@ -105,7 +135,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
                             td: ({ ...props }) => <td className="px-3 py-3 text-[12px] whitespace-nowrap text-slate-300 border-t border-white/5" {...props} />
                           }}
                         >
-                          {msg.content}
+                          {getMessageContent(msg)}
                         </ReactMarkdown>
                       </div>
                     </div>
@@ -178,7 +208,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
       {/* Input Area - Floating glass design */}
       <div className="p-6 pt-2 sticky bottom-0 z-30 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent">
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleFormSubmit}
           className="relative group max-w-4xl mx-auto"
         >
           <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-indigo-600 rounded-3xl blur-lg opacity-20 group-focus-within:opacity-40 transition-opacity"></div>
@@ -193,7 +223,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
             />
             <button
               type="submit"
-              disabled={!input.trim() || isLoading}
+              disabled={!input?.trim() || isLoading}
               className="mr-4 p-3 rounded-xl bg-emerald-500 text-slate-950 disabled:opacity-50 disabled:grayscale transition-all hover:scale-105 active:scale-95 shadow-xl shadow-emerald-500/20"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -91,5 +91,5 @@ export default async function handler(req: Request) {
         },
     });
 
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
 }

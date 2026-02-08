@@ -72,7 +72,8 @@ export default async function handler(req: Request) {
         onFinish: async ({ text, usage }) => {
             // Async persistence to Supabase
             try {
-                const lastMessage = messages[messages.length - 1];
+                const lastMessage = messages[messages.length - 1]; // This is the user message. Ideally we want AI response.
+                // The 'text' argument is the AI response.
                 await supabase.from('scouting_reports').insert({
                     tenant_id: '00000000-0000-0000-0000-000000000000',
                     prompt: lastMessage.content,
@@ -90,5 +91,5 @@ export default async function handler(req: Request) {
         },
     });
 
-    return result.toTextStreamResponse();
+    return result.toDataStreamResponse();
 }

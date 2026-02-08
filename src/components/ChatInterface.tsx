@@ -1,4 +1,4 @@
-import { useChat } from 'ai/react';
+import { useChat } from '@ai-sdk/react';
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 

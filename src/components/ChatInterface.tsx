@@ -1,7 +1,5 @@
-
+import { useChat } from 'ai/react';
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage } from '../types';
-import { ChatOrchestrator } from '../services/geminiService';
 import ReactMarkdown from 'react-markdown';
 
 interface ChatInterfaceProps {
@@ -9,39 +7,26 @@ interface ChatInterfaceProps {
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
-  const orchestratorRef = useRef<ChatOrchestrator | null>(null);
-  const [initError, setInitError] = useState<string | null>(null);
+  const { messages, input, setInput, handleSubmit, isLoading, error: chatError } = useChat({
+    api: '/api/chat/stream',
+    initialMessages: [
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content: "Hello Manager! ⚽️ I'm your **FPL Insight Scout**, now upgraded with **Super-Speed Streaming**. \n\nI'm ready to analyze your squad. Who should we look at today?",
+      }
+    ],
+  });
 
-  if (!orchestratorRef.current) {
-    orchestratorRef.current = new ChatOrchestrator();
-  }
-
-  useEffect(() => {
-    if (orchestratorRef.current?.initError) {
-      setInitError(orchestratorRef.current.initError);
-    }
-  }, []);
-
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: "Hello Manager! ⚽️ I'm your **FPL Insight Scout**, now connected to our advanced betting and stats intelligence engine. \n\nI'm ready to analyze your squad. Who should we look at today?",
-      timestamp: new Date()
-    }
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
-  const scrollRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
 
-  // Improved scroll logic: When a new message arrives, scroll to its TOP, not the bottom of the container.
+  // Auto-scroll when new content arrives
   useEffect(() => {
     if (messages.length > 1 && lastMessageRef.current) {
       lastMessageRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [messages.length]);
+  }, [messages, isLoading]);
 
   const extractTitle = (content: string): string => {
     const headerMatch = content.match(/^#+\s*(.*)/m);
@@ -52,51 +37,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
     return firstLine.length > 40 ? firstLine.substring(0, 37) + '...' : firstLine;
   };
 
-  const handleAddToBuilder = (msg: ChatMessage) => {
+  const handleAddToBuilder = (msg: any) => {
     const title = extractTitle(msg.content);
     onAddToBuilder(msg.content, title);
     setAddedIds(prev => new Set([...prev, msg.id]));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-
-    try {
-      const response = await orchestratorRef.current!.sendMessage(input);
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.text,
-        timestamp: new Date(),
-        data: response.data
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-    } catch (error: any) {
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `🚨 **Network Error:** ${error.message || "I'm having trouble reaching the scouting network."}\n\n*Check the browser console for more details.*`,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (initError) {
+  if (chatError) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-700">
         <div className="w-20 h-20 rounded-3xl bg-amber-500/10 flex items-center justify-center text-amber-500 mb-6 border border-amber-500/20">
@@ -104,14 +51,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-outfit font-bold text-white mb-3">Scouting Network Offline</h2>
+        <h2 className="text-2xl font-outfit font-bold text-white mb-3">Scouting Network Error</h2>
         <p className="text-slate-400 max-w-md leading-relaxed mb-8">
-          {initError}
+          {chatError.message}
         </p>
-        <div className="p-4 rounded-xl bg-slate-900 border border-white/5 text-xs text-slate-500 flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-slate-700 animate-pulse"></div>
-          Ensure your <code className="text-emerald-400">GEMINI_API_KEY</code> is set in Vercel project settings.
-        </div>
       </div>
     );
   }
@@ -120,11 +63,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
     <div className="flex-1 flex flex-col h-full max-w-5xl mx-auto w-full relative">
       {/* Messages */}
       <div
-        ref={scrollRef}
         className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-12 pb-24"
       >
         {messages.map((msg, idx) => {
           const isLast = idx === messages.length - 1;
+          const timestamp = new Date(); // AI SDK messages don't have built-in local timestamps in the same way
           return (
             <div
               key={msg.id}
@@ -157,9 +100,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
                       <div className={`prose prose-invert prose-sm max-w-none ${msg.role === 'assistant' ? 'p-6' : ''}`}>
                         <ReactMarkdown
                           components={{
-                            table: ({ node, ...props }) => <div className="overflow-x-auto my-6"><table className="min-w-full divide-y divide-white/10" {...props} /></div>,
-                            th: ({ node, ...props }) => <th className="px-3 py-3 text-left text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-white/5" {...props} />,
-                            td: ({ node, ...props }) => <td className="px-3 py-3 text-[12px] whitespace-nowrap text-slate-300 border-t border-white/5" {...props} />
+                            table: ({ ...props }) => <div className="overflow-x-auto my-6"><table className="min-w-full divide-y divide-white/10" {...props} /></div>,
+                            th: ({ ...props }) => <th className="px-3 py-3 text-left text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-white/5" {...props} />,
+                            td: ({ ...props }) => <td className="px-3 py-3 text-[12px] whitespace-nowrap text-slate-300 border-t border-white/5" {...props} />
                           }}
                         >
                           {msg.content}
@@ -197,7 +140,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onAddToBuilder }) => {
                   </div>
 
                   <span className="text-[10px] text-slate-500 mt-2 px-1 uppercase font-bold tracking-[0.1em]">
-                    {msg.role === 'user' ? 'Manager' : 'Scout Intelligence Engine'} • {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {msg.role === 'user' ? 'Manager' : 'Scout Intelligence Engine'} • {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
 
                   {/* Mobile-only fallback button for small screens */}
